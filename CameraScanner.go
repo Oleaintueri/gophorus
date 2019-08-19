@@ -1,4 +1,4 @@
-package Network
+package GoNetworkCameraScanner
 
 import (
 	"context"
@@ -23,7 +23,10 @@ type Camera struct {
 	isOpen  bool
 }
 
-func Ulimit() int64 {
+/*
+ulimit is to limit the amount of concurrent processes
+*/
+func ulimit() int64 {
 	out, err := exec.Command("/bin/sh", "-c", "ulimit -n").Output()
 
 	if err != nil {
@@ -38,9 +41,15 @@ func Ulimit() int64 {
 	return i
 }
 
-func ScanPort(ip string, port int, timeout time.Duration, wg *sync.WaitGroup) (isOpen bool, err error) {
+/*
+Scan the port of the ip
+*/
+func scanPort(ip string, port int, timeout time.Duration, wg *sync.WaitGroup) (isOpen bool, err error) {
+	// wg will call Done at the end of the function's execution using defer
 	defer wg.Done()
 	defer println("Done with Scan..." + ip)
+
+	// Check the port. If the connection throws an error, the port is closed.
 	target := fmt.Sprintf("%s:%d", ip, port)
 	conn, err := net.DialTimeout("tcp", target, timeout)
 
@@ -48,7 +57,7 @@ func ScanPort(ip string, port int, timeout time.Duration, wg *sync.WaitGroup) (i
 		if strings.Contains(err.Error(), "too many open files") {
 			println("too many files open..")
 			time.Sleep(timeout)
-			return ScanPort(ip, port, timeout, wg)
+			return scanPort(ip, port, timeout, wg)
 		}
 		return false, err
 
@@ -63,22 +72,30 @@ func ScanPort(ip string, port int, timeout time.Duration, wg *sync.WaitGroup) (i
 	return false, nil
 }
 
-func (semaphore *Semaphore) RunHelper(camera []Camera) (openCameras []string) {
+/*
+Run helper executes using a Semaphore. It also is the parent of all the goroutines
+*/
+func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 	wg := sync.WaitGroup{}
+	// Wait for all goroutines to finish
 	defer wg.Wait()
-	outputChannel := make(chan Camera)
 
+	// Loop through all the cameras and execute the scanPort function
 	for i := range camera {
+		// Add to WaitGroup
 		wg.Add(1)
+		// Lock the Semaphore
 		err := semaphore.lock.Acquire(context.Background(), 1)
 		if err != nil {
 			panic(err)
 		}
 		tmpCamera := camera[i]
+		// Execute an anonymous goroutine
 		go func(tmpCamera Camera) {
+			// Once anonymous function is done executing the semaphore will release
 			defer semaphore.lock.Release(1)
 			fmt.Println("Testing port " + strconv.Itoa(tmpCamera.port) + " with IP " + tmpCamera.ip)
-			isOpen, err := ScanPort(tmpCamera.ip, tmpCamera.port, tmpCamera.timeout, &wg)
+			isOpen, err := scanPort(tmpCamera.ip, tmpCamera.port, tmpCamera.timeout, &wg)
 			if err == nil {
 				if isOpen == true {
 					tmpCamera.isOpen = true
@@ -91,7 +108,7 @@ func (semaphore *Semaphore) RunHelper(camera []Camera) (openCameras []string) {
 		}(tmpCamera)
 	}
 	count := 0
-	println("len: " + strconv.Itoa(len(outputChannel)))
+
 	for i := range camera {
 		val := camera[i]
 		openCameras = append(openCameras, val.ip)
@@ -103,14 +120,20 @@ func (semaphore *Semaphore) RunHelper(camera []Camera) (openCameras []string) {
 	return openCameras
 }
 
+/*
+Start point
+ */
 func Run(ipRange string, port int) []string {
 	cameras := parseIpRange(ipRange, port)
-	s := &Semaphore{lock: semaphore.NewWeighted(Ulimit()),}
-	opens := s.RunHelper(cameras)
+	s := &Semaphore{lock: semaphore.NewWeighted(ulimit()),}
+	opens := s.runHelper(cameras)
 	fmt.Println("Length of opens: " + strconv.Itoa(len(opens)))
 	return opens
 }
 
+/*
+Parse IP Range string eg. "192.168.1.100-192.168.1.200"
+*/
 func parseIpRange(ipRange string, port int) (cameraScanner []Camera) {
 	// ipRange := "41.188.226.1-41.188.226.250"
 	splitIPArr := strings.Split(ipRange, "-")
