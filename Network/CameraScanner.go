@@ -20,6 +20,7 @@ type Camera struct {
 	ip      string
 	timeout time.Duration
 	port    int
+	isOpen  bool
 }
 
 func Ulimit() int64 {
@@ -37,7 +38,9 @@ func Ulimit() int64 {
 	return i
 }
 
-func ScanPort(ip string, port int, timeout time.Duration) (isOpen bool, err error) {
+func ScanPort(ip string, port int, timeout time.Duration, wg *sync.WaitGroup) (isOpen bool, err error) {
+	defer wg.Done()
+	defer println("Done with Scan..." + ip)
 	target := fmt.Sprintf("%s:%d", ip, port)
 	conn, err := net.DialTimeout("tcp", target, timeout)
 
@@ -45,7 +48,7 @@ func ScanPort(ip string, port int, timeout time.Duration) (isOpen bool, err erro
 		if strings.Contains(err.Error(), "too many open files") {
 			println("too many files open..")
 			time.Sleep(timeout)
-			return ScanPort(ip, port, timeout)
+			return ScanPort(ip, port, timeout, wg)
 		}
 		return false, err
 
@@ -64,40 +67,39 @@ func (semaphore *Semaphore) RunHelper(camera []Camera) (openCameras []string) {
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
 	outputChannel := make(chan Camera)
+
 	for i := range camera {
 		wg.Add(1)
 		err := semaphore.lock.Acquire(context.Background(), 1)
 		if err != nil {
 			panic(err)
 		}
-		tmpCamera := &camera[i]
-		go func() {
+		tmpCamera := camera[i]
+		go func(tmpCamera Camera) {
 			defer semaphore.lock.Release(1)
-			defer wg.Done()
 			fmt.Println("Testing port " + strconv.Itoa(tmpCamera.port) + " with IP " + tmpCamera.ip)
-			isOpen, err := ScanPort(tmpCamera.ip, tmpCamera.port, tmpCamera.timeout)
+			isOpen, err := ScanPort(tmpCamera.ip, tmpCamera.port, tmpCamera.timeout, &wg)
 			if err == nil {
 				if isOpen == true {
-					outputChannel <- *tmpCamera
+					tmpCamera.isOpen = true
 				} else {
 					fmt.Println("Port of IP " + tmpCamera.ip + " closed")
 				}
 			} else {
 				println(err.Error())
 			}
-		}()
+		}(tmpCamera)
 	}
 	count := 0
-	for {
-		val, ok := <-outputChannel
-		if !ok {
-			break
-		}
-		fmt.Println("Port of IP "+val.ip+" open\n", "Calls: "+strconv.Itoa(count))
+	println("len: " + strconv.Itoa(len(outputChannel)))
+	for i := range camera {
+		val := camera[i]
 		openCameras = append(openCameras, val.ip)
+		fmt.Println("Port of IP "+val.ip+" open\n", "Calls: "+strconv.Itoa(count))
 		count++
 	}
 	println("Ended ScanHelper")
+	//close(outputChannel)
 	return openCameras
 }
 
@@ -132,6 +134,7 @@ func parseIpRange(ipRange string, port int) (cameraScanner []Camera) {
 			ip:      baseIP + "." + strconv.FormatInt(int64(i), 10),
 			port:    port,
 			timeout: 3000 * time.Millisecond,
+			isOpen:  false,
 		})
 	}
 	return

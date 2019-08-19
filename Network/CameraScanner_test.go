@@ -6,7 +6,7 @@ import (
 )
 
 func TestRunt(t *testing.T) {
-	got := Run("185.60.219.1-41.185.60.219.4", 80)
+	got := Run("185.60.219.1-41.185.60.219.250", 80)
 	fmt.Println(got)
 }
 
