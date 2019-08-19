@@ -111,8 +111,13 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 
 	for i := range camera {
 		val := camera[i]
-		openCameras = append(openCameras, val.ip)
-		fmt.Println("Port of IP "+val.ip+" open\n", "Calls: "+strconv.Itoa(count))
+		if val.isOpen {
+			openCameras = append(openCameras, val.ip)
+			fmt.Println("Port of IP "+val.ip+" open\n", "Calls: "+strconv.Itoa(count))
+		} else {
+			fmt.Println("Port of IP "+val.ip+" closed\n", "Calls: "+strconv.Itoa(count))
+		}
+
 		count++
 	}
 	println("Ended ScanHelper")
@@ -122,7 +127,7 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 
 /*
 Start point
- */
+*/
 func Run(ipRange string, port int) []string {
 	cameras := parseIpRange(ipRange, port)
 	s := &Semaphore{lock: semaphore.NewWeighted(ulimit()),}
