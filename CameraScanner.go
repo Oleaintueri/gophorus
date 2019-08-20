@@ -1,3 +1,8 @@
+/*
+Author Alano Terblanche (Benehiko) with the guidance of Kent Gruber's Medium article (https://medium.com/@KentGruber/building-a-high-performance-port-scanner-with-golang-9976181ec39d)
+License is the Apache License and can be found in the project as LICENSE.md
+Extra information can be found in README.md
+*/
 package GoNetworkCameraScanner
 
 import (
@@ -12,10 +17,16 @@ import (
 	"time"
 )
 
+/*
+Semaphore lock to prevent too many concurrent tcp connections
+*/
 type Semaphore struct {
 	lock *semaphore.Weighted
 }
 
+/*
+Camera Struct for easy data passing
+*/
 type Camera struct {
 	ip      string
 	timeout time.Duration
@@ -77,7 +88,6 @@ Run helper executes using a Semaphore. It also is the parent of all the goroutin
 */
 func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 	wg := sync.WaitGroup{}
-	// Wait for all goroutines to finish
 
 	// Loop through all the cameras and execute the scanPort function
 	for i := range camera {
@@ -88,7 +98,7 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 		if err != nil {
 			panic(err)
 		}
-		//tmpCamera := &camera[i]
+
 		// Execute an anonymous goroutine
 		go func(tc int) {
 			// Once anonymous function is done executing the semaphore will release
@@ -105,6 +115,7 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 			}
 		}(i)
 	}
+	// Wait for all goroutines to finish before continuing
 	wg.Wait()
 	count := 0
 
@@ -125,7 +136,7 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 }
 
 /*
-Start point
+Start point. Add the IP range eg. "192.168.1.1-192.168.1.250"
 */
 func Run(ipRange string, port int) []string {
 	cameras := parseIpRange(ipRange, port)
@@ -136,7 +147,7 @@ func Run(ipRange string, port int) []string {
 }
 
 /*
-Parse IP Range string eg. "192.168.1.100-192.168.1.200"
+Parse IP Range string eg. "192.168.1.100-192.168.1.200" into Camera array
 */
 func parseIpRange(ipRange string, port int) (cameraScanner []Camera) {
 	// ipRange := "41.188.226.1-41.188.226.250"
