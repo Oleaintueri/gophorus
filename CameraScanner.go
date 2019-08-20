@@ -78,7 +78,6 @@ Run helper executes using a Semaphore. It also is the parent of all the goroutin
 func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 	wg := sync.WaitGroup{}
 	// Wait for all goroutines to finish
-	defer wg.Wait()
 
 	// Loop through all the cameras and execute the scanPort function
 	for i := range camera {
@@ -89,24 +88,24 @@ func (semaphore *Semaphore) runHelper(camera []Camera) (openCameras []string) {
 		if err != nil {
 			panic(err)
 		}
-		tmpCamera := camera[i]
+		//tmpCamera := &camera[i]
 		// Execute an anonymous goroutine
-		go func(tmpCamera Camera) {
+		go func(tc int) {
 			// Once anonymous function is done executing the semaphore will release
 			defer semaphore.lock.Release(1)
-			fmt.Println("Testing port " + strconv.Itoa(tmpCamera.port) + " with IP " + tmpCamera.ip)
-			isOpen, err := scanPort(tmpCamera.ip, tmpCamera.port, tmpCamera.timeout, &wg)
+			//fmt.Println("Testing port " + strconv.Itoa(tmpCamera.port) + " with IP " + tmpCamera.ip)
+			isOpen, err := scanPort(camera[tc].ip, camera[tc].port, camera[tc].timeout, &wg)
+			fmt.Println("Testing port " + strconv.Itoa(camera[tc].port) + " with IP " + camera[tc].ip + " STATUS: " + strconv.FormatBool(isOpen))
 			if err == nil {
-				if isOpen == true {
-					tmpCamera.isOpen = true
-				} else {
-					fmt.Println("Port of IP " + tmpCamera.ip + " closed")
+				if isOpen {
+					camera[tc].isOpen = true
 				}
 			} else {
 				println(err.Error())
 			}
-		}(tmpCamera)
+		}(i)
 	}
+	wg.Wait()
 	count := 0
 
 	for i := range camera {
