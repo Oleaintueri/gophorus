@@ -12,7 +12,7 @@ import (
 
 //Run Test on "Run" function
 func TestRunt(t *testing.T) {
-	got := Run("216.58.223.1-216.58.223.142", 80)
+	got := Run("185.60.219.1-185.60.219.250", 80)
 	fmt.Println("IP Addresses open: ")
 	for i := range got {
 		fmt.Println(got[i])
@@ -22,6 +22,6 @@ func TestRunt(t *testing.T) {
 //Run Benchmark on "Run" function
 func BenchmarkRun(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Run("216.58.223.1-216.58.223.142", 80)
+		Run("185.60.219.1-185.60.219.250", 80)
 	}
 }
