@@ -1,9 +1,17 @@
-## GoNetworkCameraScanner
+<h1 align="center">Gophorus</h1>
 
-A really fast port scanner built with the help of [Kent Gruber's Medium Article](https://medium.com/@KentGruber/building-a-high-performance-port-scanner-with-golang-9976181ec39d)
+A really fast network utility library for scanning network devices.
 
-GoNetworkCameraScanner is meant to scan a network with an "IP Range" and a defined port. The reason for this library is to know which IP Camera on a given network is "live" or even finding them without needing to know their IP. 
+## Getting started
 
-### Other Resources
+### Installation
 
-[Channels in Go](https://medium.com/rungo/anatomy-of-channels-in-go-concurrency-in-go-1ec336086adb) 
+    go get github.com/Oleaintueri/gophorus
+
+### Usage
+
+## Other Resources
+
+- [Channels in Go](https://medium.com/rungo/anatomy-of-channels-in-go-concurrency-in-go-1ec336086adb)
+
+- [Kent Gruber's Medium Article](https://medium.com/@KentGruber/building-a-high-performance-port-scanner-with-golang-9976181ec39d)
