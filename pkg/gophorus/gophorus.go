@@ -1,12 +1,12 @@
 package gophorus
 
 import (
+	"github.com/Oleaintueri/gophorus/internal/pkg"
 	"github.com/Oleaintueri/gophorus/internal/pkg/ports"
-	"github.com/Oleaintueri/gophorus/internal/pkg/utility"
 )
 
 type Gophorus interface {
-	Scan() ([]*utility.GenericDevice, error)
+	Scan() ([]*pkg.GenericDevice, error)
 }
 
 func NewPortScanner(ip string, opts ...ports.OptionPortScanner) (Gophorus, error) {

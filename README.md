@@ -6,9 +6,57 @@ A really fast network utility library for scanning network devices.
 
 ### Installation
 
-    go get github.com/Oleaintueri/gophorus
+    GO111MODULE=on go get github.com/Oleaintueri/gophorus
 
 ### Usage
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/Oleaintueri/gophorus/internal/pkg/ports"
+	"github.com/Oleaintueri/gophorus/pkg/gophorus"
+)
+
+func main() {
+	// A singular IP to scan
+	gp, err := gophorus.NewPortScanner("192.168.0.1", 
+		ports.WithReturnOnlyOpen(true),
+		ports.WithPorts([]int{
+		443,
+		8000,
+		9000,
+        }))
+	
+	// Scan an entire cidr
+	gp, err = gophorus.NewPortScanner("192.168.0.1",
+		ports.WithEntireCidr(true),
+		ports.WithReturnOnlyOpen(true),
+		ports.WithTimeout(2000),
+		ports.WithProtocol(ports.PROTOCOL_TCP),
+		ports.WithPorts([]int{
+		80,
+		443,
+		8000,
+		9000,
+        }))
+
+	if err != nil {
+		panic(err)
+	}
+
+	devices, err := gp.Scan()
+
+	if err != nil {
+		panic(err)
+	}
+
+	for i := range devices {
+		fmt.Printf("Device: %v", devices[i])
+	}
+}
+```
 
 ## Other Resources
 

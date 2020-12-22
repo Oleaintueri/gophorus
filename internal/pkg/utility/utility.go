@@ -6,13 +6,6 @@ import (
 	"strings"
 )
 
-type GenericDevice struct {
-	IP         string `json:"ip"`
-	Port       int    `json:"port"`
-	Open       bool   `json:"open"`
-	DeviceType string `json:"deviceType"`
-}
-
 /*
 ulimit is to limit the amount of concurrent processes
 */

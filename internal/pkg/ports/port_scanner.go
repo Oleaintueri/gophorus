@@ -11,6 +11,7 @@ package ports
 import (
 	"context"
 	"fmt"
+	"github.com/Oleaintueri/gophorus/internal/pkg"
 	"github.com/Oleaintueri/gophorus/internal/pkg/utility"
 	"github.com/projectdiscovery/mapcidr"
 	"golang.org/x/sync/semaphore"
@@ -129,7 +130,7 @@ func WithReturnOnlyOpen(onlyOpen bool) OptionPortScanner {
 }
 
 type PortScanner struct {
-	devices []*utility.GenericDevice
+	devices []*pkg.GenericDevice
 	lock    *semaphore.Weighted
 	*options
 }
@@ -164,7 +165,7 @@ func NewPortScanner(ipAddr string, opts ...OptionPortScanner) (*PortScanner, err
 		o.apply(options)
 	}
 
-	var devices []*utility.GenericDevice
+	var devices []*pkg.GenericDevice
 
 	if options.entireCIDR {
 		ips, err := mapcidr.IPAddresses(ipAddr)
@@ -175,7 +176,7 @@ func NewPortScanner(ipAddr string, opts ...OptionPortScanner) (*PortScanner, err
 
 		for i := range ips {
 			for y := range options.ports {
-				devices = append(devices, &utility.GenericDevice{
+				devices = append(devices, &pkg.GenericDevice{
 					IP:         ips[i],
 					Port:       options.ports[y],
 					Open:       false,
@@ -185,7 +186,7 @@ func NewPortScanner(ipAddr string, opts ...OptionPortScanner) (*PortScanner, err
 		}
 	} else {
 		for y := range options.ports {
-			devices = append(devices, &utility.GenericDevice{
+			devices = append(devices, &pkg.GenericDevice{
 				IP:         ipAddr,
 				Port:       options.ports[y],
 				Open:       false,
@@ -202,7 +203,7 @@ func NewPortScanner(ipAddr string, opts ...OptionPortScanner) (*PortScanner, err
 }
 
 // Scan the network with the configurations set in NewPortScanner
-func (ps *PortScanner) Scan() ([]*utility.GenericDevice, error) {
+func (ps *PortScanner) Scan() ([]*pkg.GenericDevice, error) {
 	wg := sync.WaitGroup{}
 
 	timeout := ps.options.timeout
@@ -216,7 +217,7 @@ func (ps *PortScanner) Scan() ([]*utility.GenericDevice, error) {
 			return nil, err
 		}
 
-		go func(device *utility.GenericDevice, timeout time.Duration) {
+		go func(device *pkg.GenericDevice, timeout time.Duration) {
 			// Once anonymous function is done executing the semaphore will release
 			defer ps.lock.Release(1)
 
@@ -232,7 +233,7 @@ func (ps *PortScanner) Scan() ([]*utility.GenericDevice, error) {
 	}
 
 	if ps.returnOnlyOpen {
-		var onlyOpen []*utility.GenericDevice
+		var onlyOpen []*pkg.GenericDevice
 
 		for i := range ps.devices {
 			if ps.devices[i].Open {
