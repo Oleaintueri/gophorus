@@ -16,6 +16,14 @@ Features:
 - Port Scanning
 - UPnP (ssdp)
 
+
+Build with :heart: by
+
+<a href="https://oleaintueri.com"><img src="https://oleaintueri.com/images/oliv.svg" width="60px"/><img width="200px" style="padding-bottom: 10px" src="https://oleaintueri.com/images/oleaintueri.svg"/></a>
+
+[Oleaintueri](https://oleaintueri.com) is sponsoring the development and maintenance of this project within their organisation.
+
+
 ## Getting started
 
 ### Installation
