@@ -15,3 +15,5 @@ A really fast network utility library for scanning network devices.
 - [Channels in Go](https://medium.com/rungo/anatomy-of-channels-in-go-concurrency-in-go-1ec336086adb)
 
 - [Kent Gruber's Medium Article](https://medium.com/@KentGruber/building-a-high-performance-port-scanner-with-golang-9976181ec39d)
+
+- [Kent Gruber's Source Code](https://gist.github.com/picatz/9c0028efd7b3ced3329f7322f41b16e1#file-port_scanner-go)

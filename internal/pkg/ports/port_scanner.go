@@ -3,6 +3,7 @@ Author: Alano Terblanche (Benehiko)
 
 Written with the guidance of
 Kent Gruber's Medium article (https://medium.com/@KentGruber/building-a-high-performance-port-scanner-with-golang-9976181ec39d)
+Source: https://gist.github.com/picatz/9c0028efd7b3ced3329f7322f41b16e1#file-port_scanner-go
 
 */
 package ports
@@ -11,7 +12,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Oleaintueri/gophorus/internal/pkg/utility"
-	"github.com/yl2chen/cidranger"
+	"github.com/projectdiscovery/mapcidr"
 	"golang.org/x/sync/semaphore"
 	"net"
 	"strings"
@@ -21,12 +22,18 @@ import (
 
 // Rest options for testing an endpoint on an open port
 type restOptions struct {
-	params   string      // the query parameters that should be added "foo=1&bar=2
-	endpoint string      // the endpoint that should be targeted "/api/v1/..."
-	payload  interface{} // The data that should be sent
-	protocol Protocol    // UDP / TCP
-	scheme   Scheme      // HTTPS / HTTP
-	method   string      // HTTP method, POST, GET etc.
+	// the query parameters that should be added "foo=1&bar=2
+	params string
+	// the endpoint that should be targeted "/api/v1/..."
+	endpoint string
+	// The data that should be sent
+	payload interface{}
+	// UDP / TCP
+	protocol Protocol
+	// HTTPS / HTTP
+	scheme Scheme
+	// HTTP method, POST, GET etc.
+	method string
 }
 
 // internal port scanner options
@@ -38,11 +45,20 @@ type options struct {
 	ports []int
 	// specify if the entire cidr should be scanned
 	entireCIDR bool
-	restOptions
+	// return only open ports
+	returnOnlyOpen bool
+
+	*restOptions
 }
 
 type OptionPortScanner interface {
 	apply(*options)
+}
+
+type returnOnlyOpenOption bool
+
+func (r returnOnlyOpenOption) apply(opts *options) {
+	opts.returnOnlyOpen = bool(r)
 }
 
 type protocolOption Protocol
@@ -51,10 +67,12 @@ func (p protocolOption) apply(opts *options) {
 	opts.protocol = Protocol(p)
 }
 
-type restfulOption restOptions
+type restfulOption struct {
+	restOptions *restOptions
+}
 
 func (r restfulOption) apply(opts *options) {
-	opts.restOptions = restOptions(r)
+	opts.restOptions = r.restOptions
 }
 
 type timeoutOption int
@@ -69,101 +87,110 @@ func (p portsOption) apply(opts *options) {
 	opts.ports = p
 }
 
-type endpointOption string
-
-func (e endpointOption) apply(opts *options) {
-	opts.endpoint = string(e)
-}
-
-type payloadOption struct {
-	payload interface{}
-}
-
-func (p payloadOption) apply(opts *options) {
-	opts.payload = p.payload
-}
-
 type entireCidrOption bool
 
 func (e entireCidrOption) apply(opts *options) {
 	opts.entireCIDR = bool(e)
 }
 
+// Timeout in milliseconds
+// Default is 1000
 func WithTimeout(timeout int) OptionPortScanner {
 	return timeoutOption(timeout)
 }
 
+// Custom list of ports to scan
+// Default is 80
 func WithPorts(ports []int) OptionPortScanner {
 	return portsOption(ports)
 }
 
-func WithEndpoint(endpoint string) OptionPortScanner {
-	return endpointOption(endpoint)
-}
-
+// Set to true to scan the entire CIDR block
+// Default is false
 func WithEntireCidr(entireCidr bool) OptionPortScanner {
 	return entireCidrOption(entireCidr)
 }
 
+// Add a restful endpoint to test when port is open
 func WithRestful(restOpts restOptions) OptionPortScanner {
-	return restfulOption(restOpts)
+	return restfulOption{&restOpts}
 }
 
+// Set the protocol, either UDP or TCP
+// Default is TCP
 func WithProtocol(protocol Protocol) OptionPortScanner {
 	return protocolOption(protocol)
+}
+
+// Set to true to only return open devices
+// Default is false
+func WithReturnOnlyOpen(onlyOpen bool) OptionPortScanner {
+	return returnOnlyOpenOption(onlyOpen)
 }
 
 type PortScanner struct {
 	devices []*utility.GenericDevice
 	lock    *semaphore.Weighted
-	options
+	*options
 }
 
 // Create a new port scanner object
-// Accepts an IP address in the IPv4 format such as eg. "192.168.0.1".
+// Accepts an IP address in the IPv4 format such as eg. "192.168.0.1" or when querying the whole CIDR "192.168.0.0/24"
 // Only the passed IP address with be scanned unless WithEntireCidr is specified in the opts field.
 //
 // Allow scanning of the entire CIDR with opts WithEntireCidr.
 // Add ports with opts WithPorts.
 // Add a specified timeout in milliseconds with opts WithTimeout.
 // Add a verifying request on top of the port check specifying restful options with opts WithRest
+// Change return value of the Scan request by only returning open ports with opts WithReturnOnlyOpen
 func NewPortScanner(ipAddr string, opts ...OptionPortScanner) (*PortScanner, error) {
 
-	// ranger helps with parsing the ip address cidr properties
-	ranger := cidranger.NewPCTrieRanger()
-
-	ip := net.ParseIP(ipAddr)
-
-	options := options{
-		protocol:    PROTOCOL_UDP,
-		timeout:     10,
-		ports:       []int{80},
-		entireCIDR:  false,
-		restOptions: nil,
+	options := &options{
+		protocol:   PROTOCOL_UDP,
+		timeout:    1000,
+		ports:      []int{80},
+		entireCIDR: false,
+		restOptions: &restOptions{
+			params:   "",
+			endpoint: "",
+			payload:  nil,
+			protocol: PROTOCOL_TCP,
+			scheme:   SCHEME_HTTP,
+			method:   "",
+		},
 	}
 
 	for _, o := range opts {
-		o.apply(&options)
+		o.apply(options)
 	}
 
 	var devices []*utility.GenericDevice
 
 	if options.entireCIDR {
-		containingNetworks, err := ranger.ContainingNetworks(ip)
+		ips, err := mapcidr.IPAddresses(ipAddr)
 
 		if err != nil {
 			return nil, err
 		}
 
-		for i := range containingNetworks {
+		for i := range ips {
 			for y := range options.ports {
 				devices = append(devices, &utility.GenericDevice{
-					IP:         containingNetworks[i].Network().IP.String(),
+					IP:         ips[i],
 					Port:       options.ports[y],
 					Open:       false,
 					DeviceType: "",
 				})
 			}
+		}
+	} else {
+		for y := range options.ports {
+			devices = append(devices, &utility.GenericDevice{
+				IP:         ipAddr,
+				Port:       options.ports[y],
+				Open:       false,
+				DeviceType: "",
+			})
 		}
 	}
 
@@ -198,10 +225,22 @@ func (ps *PortScanner) Scan() ([]*utility.GenericDevice, error) {
 				if isOpen {
 					device.Open = true
 				}
-			} else {
-				println(err.Error())
 			}
+
 		}(ps.devices[i], timeout)
+
+	}
+
+	if ps.returnOnlyOpen {
+		var onlyOpen []*utility.GenericDevice
+
+		for i := range ps.devices {
+			if ps.devices[i].Open {
+				onlyOpen = append(onlyOpen, ps.devices[i])
+			}
+		}
+
+		return onlyOpen, nil
 
 	}
 
