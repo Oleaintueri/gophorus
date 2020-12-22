@@ -7,12 +7,19 @@ import (
 )
 
 type options struct {
+	urn        string
 	deviceName string
 	timeout    time.Duration
 }
 
 type OptionUpnpScanner interface {
 	apply(*options)
+}
+
+type urnOption string
+
+func (u urnOption) apply(opts *options) {
+	opts.urn = string(u)
 }
 
 type deviceNameOption string
@@ -25,6 +32,10 @@ type timeoutOption int
 
 func (t timeoutOption) apply(opts *options) {
 	opts.timeout = time.Duration(t) * time.Millisecond
+}
+
+func WithUrn(urn string) OptionUpnpScanner {
+	return urnOption(urn)
 }
 
 func WithDeviceName(name string) OptionUpnpScanner {
@@ -42,6 +53,7 @@ type UpnpScanner struct {
 
 func NewUpnp(opts ...OptionUpnpScanner) *UpnpScanner {
 	options := &options{
+		urn:        ROOT_DEVICE.String(),
 		deviceName: "rootdevice",
 		timeout:    1000,
 	}
@@ -60,9 +72,9 @@ func NewUpnp(opts ...OptionUpnpScanner) *UpnpScanner {
 }
 
 func (u *UpnpScanner) Scan() ([]*pkg.GenericDevice, error) {
-	ssdpClient := ssdp.NewSSDP(ssdp.WithTimeout(2000))
+	ssdpClient := ssdp.NewSSDP(ssdp.WithTimeout(int(u.timeout)))
 
-	devices, err := ssdpClient.SearchDevices("upnp:rootdevice")
+	devices, err := ssdpClient.SearchDevices(u.urn)
 
 	if err != nil {
 		return nil, err
@@ -70,9 +82,9 @@ func (u *UpnpScanner) Scan() ([]*pkg.GenericDevice, error) {
 
 	for i := range devices {
 		u.devices = append(u.devices, &pkg.GenericDevice{
-			IP:         "",
+			IP:         devices[i].ModelURL,
 			Port:       0,
-			Open:       false,
+			Open:       true,
 			DeviceType: devices[i].DeviceType,
 			DeviceName: devices[i].FriendlyName,
 		})

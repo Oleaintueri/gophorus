@@ -8,9 +8,11 @@ import (
 func Test_ScanSingleIp(t *testing.T) {
 	portScanner, err := ports.NewPortScanner("127.0.0.1",
 		ports.WithPorts([]int{
+		53,
 		80,
 		443,
 		8000,
+		9000,
 	}), ports.WithTimeout(2000))
 
 	if err != nil {
@@ -35,6 +37,7 @@ func Test_ScanEntireCidr(t *testing.T) {
 		80,
 		443,
 		8000,
+		9000,
 	}),
 	ports.WithReturnOnlyOpen(true))
 
